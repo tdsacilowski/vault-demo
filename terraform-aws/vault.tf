@@ -8,6 +8,7 @@ resource "aws_instance" "vault-demo" {
   iam_instance_profile        = "${aws_iam_instance_profile.vault.id}"
 
   tags {
+    Owner    = "Teddy"
     Name     = "${var.environment_name}-vault-server"
     ConsulDC = "demo"
   }
