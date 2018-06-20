@@ -1,3 +1,4 @@
+/*
 resource "aws_db_instance" "default" {
   allocated_storage         = 10
   storage_type              = "gp2"
@@ -10,3 +11,5 @@ resource "aws_db_instance" "default" {
   skip_final_snapshot       = "true"
   final_snapshot_identifier = "some-snap"
 }
+*/
+
