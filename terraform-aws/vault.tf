@@ -12,7 +12,7 @@ resource "aws_instance" "vault-demo-primary" {
     ConsulDC = "demo-primary"
   }
 
-  user_data = "${data.template_file.vault-demo.rendered}"
+  user_data = "${data.template_file.vault-demo-primary.rendered}"
 }
 
 data "template_file" "vault-demo-primary" {
@@ -43,7 +43,7 @@ resource "aws_instance" "vault-demo-secondary" {
     ConsulDC = "demo-secondary"
   }
 
-  user_data = "${data.template_file.vault-demo.rendered}"
+  user_data = "${data.template_file.vault-demo-secondary.rendered}"
 }
 
 data "template_file" "vault-demo-secondary" {
