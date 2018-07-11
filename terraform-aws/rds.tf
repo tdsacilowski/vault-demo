@@ -1,6 +1,4 @@
 resource "aws_db_instance" "vault-demo" {
-  # Set var.db_count to 0 to disable this resource  # Default is 1  #count = "${var.db_count}"
-
   allocated_storage         = 10
   storage_type              = "gp2"
   engine                    = "postgres"
