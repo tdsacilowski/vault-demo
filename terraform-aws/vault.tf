@@ -1,3 +1,6 @@
+//--------------------------------------------------------------------
+// Primary Vault Cluster
+
 resource "aws_instance" "vault-demo-primary" {
   ami                         = "${data.aws_ami.ubuntu.id}"
   instance_type               = "${var.instance_type}"
@@ -29,6 +32,8 @@ data "template_file" "vault-demo-primary" {
   }
 }
 
+//--------------------------------------------------------------------
+// Secondary Vault Cluster
 resource "aws_instance" "vault-demo-secondary" {
   ami                         = "${data.aws_ami.ubuntu.id}"
   instance_type               = "${var.instance_type}"

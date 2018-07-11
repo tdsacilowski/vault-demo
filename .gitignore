@@ -8,6 +8,9 @@
 # Terraform Variables
 *.tfvars
 
+# Terraform Backend
+backend.tf
+
 # SSH Keys
 *.pem
 
