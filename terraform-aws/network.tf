@@ -1,51 +1,15 @@
-//--------------------------------------------------------------------
-// Resources
+module "vault_demo_vpc" {
+  source = "terraform-aws-modules/vpc/aws"
 
-resource "aws_security_group" "testing" {
-  name        = "${var.environment_name}-testing-sg"
-  description = "SSH and Internal Traffic"
-  vpc_id      = "${var.vpc_id}"
+  name = "${var.environment_name}-vpc"
+  cidr = "10.0.0.0/16"
 
-  tags {
-    Name = "${var.environment_name}"
-  }
+  azs              = ["us-east-1a", "us-east-1b"]
+  private_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets   = ["10.0.101.0/24", "10.0.102.0/24"]
+  database_subnets = ["10.0.201.0/24", "10.0.202.0/24"]
 
-  # SSH
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Vault
-  ingress {
-    from_port   = 8200
-    to_port     = 8200
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Consul UI
-  ingress {
-    from_port   = 8500
-    to_port     = 8500
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Internal Traffic
-  ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    self      = true
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  tags = {
+    Name = "${var.environment_name}-vpc"
   }
 }

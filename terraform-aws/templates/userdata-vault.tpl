@@ -162,6 +162,7 @@ sudo tee /etc/consul.d/consul-default.json <<EOF
   "datacenter": "${tpl_consul_dc}",
   "data_dir": "/opt/consul/data",
   "bind_addr": "$${PRIVATE_IP}",
+  "client_addr": "0.0.0.0",
   "log_level": "INFO",
   "ui": true,
   "retry_join": ["provider=aws tag_key=ConsulDC tag_value=${tpl_consul_dc}"]

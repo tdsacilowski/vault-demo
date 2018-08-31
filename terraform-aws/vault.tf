@@ -4,7 +4,7 @@
 resource "aws_instance" "vault-demo-primary" {
   ami                         = "${data.aws_ami.ubuntu.id}"
   instance_type               = "${var.instance_type}"
-  subnet_id                   = "${var.subnet_id}"
+  subnet_id                   = "${module.vault_demo_vpc.public_subnets[0]}"
   key_name                    = "${var.key_name}"
   vpc_security_group_ids      = ["${aws_security_group.testing.id}"]
   associate_public_ip_address = true
@@ -13,9 +13,15 @@ resource "aws_instance" "vault-demo-primary" {
   tags {
     Name     = "${var.environment_name}-vault-server-primary"
     ConsulDC = "demo-primary"
+    owner    = "teddy@hashicorp.com"
+    TTL      = "-1"
   }
 
   user_data = "${data.template_file.vault-demo-primary.rendered}"
+
+  lifecycle {
+    ignore_changes = ["ami", "tags"]
+  }
 }
 
 data "template_file" "vault-demo-primary" {
@@ -37,7 +43,7 @@ data "template_file" "vault-demo-primary" {
 resource "aws_instance" "vault-demo-secondary" {
   ami                         = "${data.aws_ami.ubuntu.id}"
   instance_type               = "${var.instance_type}"
-  subnet_id                   = "${var.subnet_id}"
+  subnet_id                   = "${module.vault_demo_vpc.public_subnets[1]}"
   key_name                    = "${var.key_name}"
   vpc_security_group_ids      = ["${aws_security_group.testing.id}"]
   associate_public_ip_address = true
@@ -46,9 +52,15 @@ resource "aws_instance" "vault-demo-secondary" {
   tags {
     Name     = "${var.environment_name}-vault-server-secondary"
     ConsulDC = "demo-secondary"
+    owner    = "teddy@hashicorp.com"
+    TTL      = "-1"
   }
 
   user_data = "${data.template_file.vault-demo-secondary.rendered}"
+
+  lifecycle {
+    ignore_changes = ["ami", "tags"]
+  }
 }
 
 data "template_file" "vault-demo-secondary" {
