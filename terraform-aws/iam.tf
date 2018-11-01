@@ -1,20 +1,38 @@
 //--------------------------------------------------------------------
 // Resources
 
-resource "aws_iam_role" "vault" {
-  name               = "${var.environment_name}-vault-role"
+## Vault Server IAM Config
+resource "aws_iam_instance_profile" "vault-server" {
+  name = "${var.environment_name}-vault-server-instance-profile"
+  role = "${aws_iam_role.vault-server.name}"
+}
+
+resource "aws_iam_role" "vault-server" {
+  name               = "${var.environment_name}-vault-server-role"
   assume_role_policy = "${data.aws_iam_policy_document.assume_role.json}"
 }
 
-resource "aws_iam_role_policy" "vault" {
-  name   = "${var.environment_name}-vault-role-policy"
-  role   = "${aws_iam_role.vault.id}"
-  policy = "${data.aws_iam_policy_document.vault.json}"
+resource "aws_iam_role_policy" "vault-server" {
+  name   = "${var.environment_name}-vault-server-role-policy"
+  role   = "${aws_iam_role.vault-server.id}"
+  policy = "${data.aws_iam_policy_document.vault-server.json}"
 }
 
-resource "aws_iam_instance_profile" "vault" {
-  name = "${var.environment_name}-vault-instance-profile"
-  role = "${aws_iam_role.vault.name}"
+# Vault Client IAM Config
+resource "aws_iam_instance_profile" "vault-client" {
+  name = "${var.environment_name}-vault-client-instance-profile"
+  role = "${aws_iam_role.vault-client.name}"
+}
+
+resource "aws_iam_role" "vault-client" {
+  name               = "${var.environment_name}-vault-client-role"
+  assume_role_policy = "${data.aws_iam_policy_document.assume_role.json}"
+}
+
+resource "aws_iam_role_policy" "vault-client" {
+  name   = "${var.environment_name}-vault-client-role-policy"
+  role   = "${aws_iam_role.vault-client.id}"
+  policy = "${data.aws_iam_policy_document.vault-client.json}"
 }
 
 //--------------------------------------------------------------------
@@ -32,7 +50,7 @@ data "aws_iam_policy_document" "assume_role" {
   }
 }
 
-data "aws_iam_policy_document" "vault" {
+data "aws_iam_policy_document" "vault-server" {
   statement {
     sid    = "ConsulAutoJoin"
     effect = "Allow"
@@ -51,6 +69,17 @@ data "aws_iam_policy_document" "vault" {
       "iam:GetUser",
       "iam:GetRole"
     ],
+    resources = ["*"]
+  }
+}
+
+data "aws_iam_policy_document" "vault-client" {
+  statement {
+    sid    = "ConsulAutoJoin"
+    effect = "Allow"
+
+    actions = ["ec2:DescribeInstances"]
+
     resources = ["*"]
   }
 }
