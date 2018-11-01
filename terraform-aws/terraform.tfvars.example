@@ -1,0 +1,14 @@
+# AWS region in which to deploy
+aws_region = "us-east-1"
+
+# All resources will be tagged with this
+environment_name = "my-vault-demo"
+
+# Instance size
+instance_type = "t2.micro"
+
+# SSH key name to access EC2 instances (should already exist)
+key_name = "my-ec2-key"
+
+# Instance tags for HashiBot AWS resource reaper
+hashibot_reaper_owner = "email@example.com"
