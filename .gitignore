@@ -2,16 +2,18 @@
 *.tfstate
 *.tfstate.*
 
-# Module directory
+# Directories
 .terraform/
+.vagrant/
 
 # Terraform Variables
 *.tfvars
 
-# Terraform Backend
-backend.tf
-
 # SSH Keys
 *.pem
 
-.DS_store
+# Backup files
+*.bak
+
+# Ignored Terraform files
+*gitignore*.tf

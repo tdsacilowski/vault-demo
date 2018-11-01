@@ -34,42 +34,23 @@ data "aws_iam_policy_document" "assume_role" {
 
 data "aws_iam_policy_document" "vault" {
   statement {
-    sid    = "VaultKMSUnseal"
-    effect = "Allow"
-
-    actions = [
-      "kms:Encrypt",
-      "kms:Decrypt",
-      "kms:DescribeKey",
-    ]
-
-    resources = ["*"]
-  }
-
-  statement {
-    sid    = "S3GetObject"
-    effect = "Allow"
-
-    actions = [
-      "s3:PutObject",
-      "s3:PutObjectAcl",
-      "s3:GetObject",
-      "s3:GetObjectAcl",
-      "s3:DeleteObject",
-    ]
-
-    resources = [
-      "arn:aws:s3:::${var.s3_bucket_name}",
-      "arn:aws:s3:::${var.s3_bucket_name}/*",
-    ]
-  }
-
-  statement {
     sid    = "ConsulAutoJoin"
     effect = "Allow"
 
     actions = ["ec2:DescribeInstances"]
 
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "VaultAWSAuthMethod"
+    effect = "Allow"
+    actions = [
+      "ec2:DescribeInstances",
+      "iam:GetInstanceProfile",
+      "iam:GetUser",
+      "iam:GetRole"
+    ],
     resources = ["*"]
   }
 }

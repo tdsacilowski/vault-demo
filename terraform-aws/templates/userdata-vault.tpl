@@ -17,8 +17,6 @@ logger "Running"
 PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
 #PUBLIC_IP=$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
 
-# S3 Bucket With Enterprise Binaries
-S3_BUCKET="${tpl_s3_bucket_name}"
 VAULT_ZIP="${tpl_vault_zip_file}"
 CONSUL_ZIP="${tpl_consul_zip_file}"
 
@@ -139,10 +137,10 @@ fi
 ## Install Consul
 
 logger "Downloading Consul"
-aws --region ${tpl_aws_region} s3 cp s3://$${S3_BUCKET}/$${CONSUL_ZIP} /tmp/$${CONSUL_ZIP} --cli-read-timeout=0
+curl -o /tmp/consul.zip $${CONSUL_ZIP}
 
 logger "Installing Consul"
-sudo unzip -o /tmp/$${CONSUL_ZIP} -d /usr/local/bin/
+sudo unzip -o /tmp/consul.zip -d /usr/local/bin/
 sudo chmod 0755 /usr/local/bin/consul
 sudo chown consul:consul /usr/local/bin/consul
 # Config dir
@@ -262,10 +260,10 @@ fi
 ## Install Vault
 
 logger "Downloading Vault"
-aws --region ${tpl_aws_region} s3 cp s3://$${S3_BUCKET}/$${VAULT_ZIP} /tmp/$${VAULT_ZIP} --cli-read-timeout=0
+curl -o /tmp/vault.zip $${VAULT_ZIP}
 
 logger "Installing Vault"
-sudo unzip -o /tmp/$${VAULT_ZIP} -d /usr/local/bin/
+sudo unzip -o /tmp/vault.zip -d /usr/local/bin/
 sudo chmod 0755 /usr/local/bin/vault
 sudo chown vault:vault /usr/local/bin/vault
 sudo mkdir -pm 0755 /etc/vault.d
@@ -287,11 +285,6 @@ listener "tcp" {
   address     = "$${PRIVATE_IP}:8200"
   #address     = "0.0.0.0:8200"
   tls_disable = 1
-}
-
-seal "awskms" {
-  region = "${tpl_aws_region}"
-  kms_key_id = "${tpl_kms_key}"
 }
 
 ui=true
