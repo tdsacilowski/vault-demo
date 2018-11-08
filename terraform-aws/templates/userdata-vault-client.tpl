@@ -19,7 +19,9 @@ PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
 
 VAULT_ZIP="${tpl_vault_zip_file}"
 CONSUL_ZIP="${tpl_consul_zip_file}"
-VAULT_ADDR="http://${tpl_vault_server_addr}:8200"
+VAULT_SERVICE_NAME="${tpl_vault_service_name}"
+CONSUL_DC_NAME="${tpl_consul_dc}"
+VAULT_ADDR="http://active.$${VAULT_SERVICE_NAME}.service.$${CONSUL_DC_NAME}.consul:8200"
 
 # Detect package management system.
 YUM=$(which yum 2>/dev/null)
@@ -158,13 +160,13 @@ logger "Configuring Consul"
 # Consul Client Config
 sudo tee /etc/consul.d/consul-default.json <<EOF
 {
-  "datacenter": "${tpl_consul_dc}",
+  "datacenter": "$${CONSUL_DC_NAME}",
   "data_dir": "/opt/consul/data",
   "bind_addr": "$${PRIVATE_IP}",
   "client_addr": "0.0.0.0",
   "log_level": "INFO",
   "ui": true,
-  "retry_join": ["provider=aws tag_key=ConsulDC tag_value=${tpl_consul_dc}"]
+  "retry_join": ["provider=aws tag_key=ConsulDC tag_value=$${CONSUL_DC_NAME}"]
 }
 EOF
 
@@ -210,25 +212,70 @@ sudo systemctl enable consul
 sudo systemctl start consul
 
 ##--------------------------------------------------------------------
-## Install & Configure Dnsmasq
+## Configure DNS Forwarding for Consul
+## (https://www.consul.io/docs/guides/forwarding.html#dnsmasq-setup)
 
-if [[ ! -z $${YUM} ]]; then
+install_dnsmasq_rhel() {
   logger "Installing dnsmasq"
   sudo yum install -q -y dnsmasq
-elif [[ ! -z $${APT_GET} ]]; then
+
+  configure_dnsmasq
+}
+
+install_dnsmasq_ubuntu() {
   logger "Installing dnsmasq"
-  sudo apt-get -qq -y update
+  sudo apt-get -qq update
   sudo apt-get install -qq -y dnsmasq-base dnsmasq
+
+  configure_dnsmasq
+}
+
+configure_dnsmasq() {
+  logger "Configuring dnsmasq to forward .consul requests to consul port 8600"
+  sudo sh -c 'echo "server=/consul/127.0.0.1#8600" >> /etc/dnsmasq.d/consul'
+
+  sudo systemctl restart dnsmasq
+}
+
+configure_systemd_resolved() {
+  # See: https://www.consul.io/docs/guides/forwarding.html#systemd-resolved-setup
+  echo "DNS=127.0.0.1" | sudo tee -a /etc/systemd/resolved.conf
+  echo "Domains=~consul" | sudo tee -a /etc/systemd/resolved.conf
+
+  # We need to create and persist iptable rules to map port 53 to 8600
+  # since Consul (by default) serves DNS on port 8600 and we're avoiding
+  # running Consul as a privileged user
+  sudo iptables -t nat -A OUTPUT -d localhost -p udp -m udp --dport 53 -j REDIRECT --to-ports 8600
+  sudo iptables -t nat -A OUTPUT -d localhost -p tcp -m tcp --dport 53 -j REDIRECT --to-ports 8600
+
+  # Save these iptables rules and persist them
+  # Unattended install of iptables-persistent
+  echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
+  echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections
+  sudo apt-get install iptables-persistent
+  
+  sudo systemctl restart systemd-resolved
+}
+
+# Tested on Ubuntu 16.04 and 18.04 so far
+if [[ ! -z $(which yum) ]]; then
+  # RHEL
+  install_dnsmasq_rhel
+elif [[ ! -z $(which apt-get) ]]; then
+  # Ubuntu
+  if [[ $(lsb_release -rs) == 16.04 ]]; then
+    install_dnsmasq_ubuntu
+  # Ubuntu 18.04 uses systemd-resolved as the default DNS resolver
+  elif [[ $(lsb_release -rs) == 18.04 ]]; then
+    configure_systemd_resolved
+  else
+    logger "ERROR configuring DNS forwarding for Consul: unsupported Ubuntu version found"
+    exit 1;
+  fi
 else
-  logger "Dnsmasq not installed due to OS detection failure"
+  logger "ERROR configuring DNS forwarding for Consul: OS detection failure"
   exit 1;
 fi
-
-logger "Configuring dnsmasq to forward .consul requests to consul port 8600"
-sudo sh -c 'echo "server=/consul/127.0.0.1#8600" >> /etc/dnsmasq.d/consul'
-
-sudo systemctl enable dnsmasq
-sudo systemctl restart dnsmasq
 
 ##--------------------------------------------------------------------
 ## Configure Vault user

@@ -2,6 +2,7 @@
 // Vault Server Instance
 
 resource "aws_instance" "vault-server" {
+  count                       = "${var.vault_server_count}"
   ami                         = "${data.aws_ami.ubuntu.id}"
   instance_type               = "${var.instance_type}"
   subnet_id                   = "${module.vault_demo_vpc.public_subnets[0]}"
@@ -11,8 +12,8 @@ resource "aws_instance" "vault-server" {
   iam_instance_profile        = "${aws_iam_instance_profile.vault-server.id}"
 
   tags {
-    Name     = "${var.environment_name}-vault-server"
-    ConsulDC = "consul-${var.aws_region}"
+    Name     = "${var.environment_name}-vault-server-${count.index}"
+    ConsulDC = "${var.consul_dc}"
     owner    = "${var.hashibot_reaper_owner}"
     TTL      = "${var.hashibot_reaper_ttl}"
   }
@@ -28,9 +29,12 @@ data "template_file" "vault-server" {
   template = "${file("${path.module}/templates/userdata-vault-server.tpl")}"
 
   vars = {
-    tpl_vault_zip_file     = "${var.vault_zip_file}"
-    tpl_consul_zip_file    = "${var.consul_zip_file}"
-    tpl_consul_dc          = "consul-${var.aws_region}"
-    tpl_vault_service_name = "vault-${var.aws_region}"
+    tpl_vault_zip_file          = "${var.vault_zip_file}"
+    tpl_consul_zip_file         = "${var.consul_zip_file}"
+    tpl_consul_dc               = "${var.consul_dc}"
+    tpl_vault_service_name      = "vault-${var.environment_name}"
+    tpl_kms_key                 = "${aws_kms_key.vault.id}"
+    tpl_aws_region              = "${var.aws_region}"
+    tpl_consul_bootstrap_expect = "${var.vault_server_count}"
   }
 }

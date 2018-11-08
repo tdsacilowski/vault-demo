@@ -20,6 +20,10 @@ PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
 VAULT_ZIP="${tpl_vault_zip_file}"
 CONSUL_ZIP="${tpl_consul_zip_file}"
 
+AWS_REGION="${tpl_aws_region}"
+KMS_KEY="${tpl_kms_key}"
+CONSUL_BOOSTRAP_EXPECT="${tpl_consul_bootstrap_expect}"
+
 # Detect package management system.
 YUM=$(which yum 2>/dev/null)
 APT_GET=$(which apt-get 2>/dev/null)
@@ -171,7 +175,7 @@ EOF
 sudo tee /etc/consul.d/consul-server.json <<EOF
 {
   "server": true,
-  "bootstrap_expect": 1
+  "bootstrap_expect": $${CONSUL_BOOSTRAP_EXPECT}
 }
 EOF
 
@@ -217,25 +221,70 @@ sudo systemctl enable consul
 sudo systemctl start consul
 
 ##--------------------------------------------------------------------
-## Install & Configure Dnsmasq
+## Configure DNS Forwarding for Consul
+## (https://www.consul.io/docs/guides/forwarding.html#dnsmasq-setup)
 
-if [[ ! -z $${YUM} ]]; then
+install_dnsmasq_rhel() {
   logger "Installing dnsmasq"
   sudo yum install -q -y dnsmasq
-elif [[ ! -z $${APT_GET} ]]; then
+
+  configure_dnsmasq
+}
+
+install_dnsmasq_ubuntu() {
   logger "Installing dnsmasq"
-  sudo apt-get -qq -y update
+  sudo apt-get -qq update
   sudo apt-get install -qq -y dnsmasq-base dnsmasq
+
+  configure_dnsmasq
+}
+
+configure_dnsmasq() {
+  logger "Configuring dnsmasq to forward .consul requests to consul port 8600"
+  sudo sh -c 'echo "server=/consul/127.0.0.1#8600" >> /etc/dnsmasq.d/consul'
+
+  sudo systemctl restart dnsmasq
+}
+
+configure_systemd_resolved() {
+  # See: https://www.consul.io/docs/guides/forwarding.html#systemd-resolved-setup
+  echo "DNS=127.0.0.1" | sudo tee -a /etc/systemd/resolved.conf
+  echo "Domains=~consul" | sudo tee -a /etc/systemd/resolved.conf
+
+  # We need to create and persist iptable rules to map port 53 to 8600
+  # since Consul (by default) serves DNS on port 8600 and we're avoiding
+  # running Consul as a privileged user
+  sudo iptables -t nat -A OUTPUT -d localhost -p udp -m udp --dport 53 -j REDIRECT --to-ports 8600
+  sudo iptables -t nat -A OUTPUT -d localhost -p tcp -m tcp --dport 53 -j REDIRECT --to-ports 8600
+
+  # Save these iptables rules and persist them
+  # Unattended install of iptables-persistent
+  echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
+  echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections
+  sudo apt-get install iptables-persistent
+  
+  sudo systemctl restart systemd-resolved
+}
+
+# Tested on Ubuntu 16.04 and 18.04 so far
+if [[ ! -z $(which yum) ]]; then
+  # RHEL
+  install_dnsmasq_rhel
+elif [[ ! -z $(which apt-get) ]]; then
+  # Ubuntu
+  if [[ $(lsb_release -rs) == 16.04 ]]; then
+    install_dnsmasq_ubuntu
+  # Ubuntu 18.04 uses systemd-resolved as the default DNS resolver
+  elif [[ $(lsb_release -rs) == 18.04 ]]; then
+    configure_systemd_resolved
+  else
+    logger "ERROR configuring DNS forwarding for Consul: unsupported Ubuntu version found"
+    exit 1;
+  fi
 else
-  logger "Dnsmasq not installed due to OS detection failure"
+  logger "ERROR configuring DNS forwarding for Consul: OS detection failure"
   exit 1;
 fi
-
-logger "Configuring dnsmasq to forward .consul requests to consul port 8600"
-sudo sh -c 'echo "server=/consul/127.0.0.1#8600" >> /etc/dnsmasq.d/consul'
-
-sudo systemctl enable dnsmasq
-sudo systemctl restart dnsmasq
 
 ##--------------------------------------------------------------------
 ## Configure Vault user
@@ -273,9 +322,6 @@ logger "/usr/local/bin/vault --version: $(/usr/local/bin/vault --version)"
 
 logger "Configuring Vault"
 sudo tee /etc/vault.d/vault.hcl <<EOF
-api_addr = "http://active.${tpl_vault_service_name}.service.${tpl_consul_dc}.consul:8200"
-cluster_addr = "https://active.${tpl_vault_service_name}.service.${tpl_consul_dc}.consul:8201"
-
 storage "consul" {
     service = "${tpl_vault_service_name}"
     path = "${tpl_vault_service_name}"
@@ -285,6 +331,14 @@ listener "tcp" {
   address     = "$${PRIVATE_IP}:8200"
   #address     = "0.0.0.0:8200"
   tls_disable = 1
+}
+
+#api_addr = "http://active.${tpl_vault_service_name}.service.${tpl_consul_dc}.consul:8200"
+#cluster_addr = "https://active.${tpl_vault_service_name}.service.${tpl_consul_dc}.consul:8201"
+
+seal "awskms" {
+  region = "$${AWS_REGION}"
+  kms_key_id = "$${KMS_KEY}"
 }
 
 ui=true

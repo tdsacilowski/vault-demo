@@ -71,6 +71,19 @@ data "aws_iam_policy_document" "vault-server" {
     ],
     resources = ["*"]
   }
+
+  statement {
+    sid    = "VaultKMSUnseal"
+    effect = "Allow"
+
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:DescribeKey",
+    ]
+
+    resources = ["*"]
+  }
 }
 
 data "aws_iam_policy_document" "vault-client" {

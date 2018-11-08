@@ -15,10 +15,18 @@ resource "aws_security_group" "testing" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Vault
+  # Vault API traffic
   ingress {
     from_port   = 8200
     to_port     = 8200
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Vault cluster traffic
+  ingress {
+    from_port   = 8201
+    to_port     = 8201
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
