@@ -82,7 +82,7 @@ data "aws_iam_policy_document" "vault-server" {
       "kms:DescribeKey",
     ]
 
-    resources = ["*"]
+    resources = ["${aws_kms_key.vault.arn}"]
   }
 }
 
